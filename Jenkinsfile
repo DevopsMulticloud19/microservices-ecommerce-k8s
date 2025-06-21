@@ -7,22 +7,12 @@ pipeline {
     }
 
     stages {
-
-        stage('Login to AWS ECR') {
-            steps {
-                echo "🔐 Logging into AWS ECR once for all services..."
-                sh """
-                    aws ecr get-login-password --region ${env.AWS_REGION} | \
-                    docker login --username AWS --password-stdin ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com
-                """
-            }
-        }
-
-        stage('Build & Push Docker Images (excluding cartservice)') {
+        stage('Build & Push Docker Images to ECR') {
             steps {
                 script {
                     def services = [
                         'adservice',
+                        'cartservice',
                         'checkoutservice',
                         'currencyservice',
                         'emailservice',
@@ -33,73 +23,31 @@ pipeline {
                         'shippingservice'
                     ]
 
-                    def failed = []
+                    for (service in services) {
+                        echo "Checking ECR for image: ${service}:latest"
+                        def imageExists = sh(
+                            script: """
+                            aws ecr describe-images \
+                              --repository-name ${service} \
+                              --image-ids imageTag=latest \
+                              --region ${env.AWS_REGION} >/dev/null 2>&1
+                            """,
+                            returnStatus: true
+                        ) == 0
 
-                    for (svc in services) {
-                        try {
-                            dir("src/${svc}") {
-                                echo "🔧 Processing service: ${svc}"
+                        if (imageExists) {
+                            echo "Image ${service}:latest already exists in ECR. Skipping build & push."
+                        } else {
+                            echo "Image ${service}:latest not found. Building & pushing..."
 
-                                sh """
-                                    echo "🚧 Building Docker image for ${svc}..."
-                                    docker build -t ${svc}:latest .
-
-                                    echo "🔁 Tagging Docker image for ECR..."
-                                    docker tag ${svc}:latest ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${svc}:latest
-
-                                    echo "📤 Pushing Docker image to ECR..."
-                                    docker push ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${svc}:latest
-                                """
-                            }
-                        } catch (Exception e) {
-                            echo "⚠️ Failed to process ${svc}: ${e.getMessage()}"
-                            failed.add(svc)
+                            sh """
+                            docker build -t ${service}:latest src/${service}
+                            docker tag ${service}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${service}:latest
+                            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${service}:latest
+                            """
                         }
                     }
-
-                    if (failed) {
-                        echo "❌ These services failed: ${failed.join(', ')}"
-                        // Uncomment below if you want the build to fail
-                        // error("Build failed for services: ${failed.join(', ')}")
-                    }
                 }
-            }
-        }
-
-        stage('Build & Push cartservice Docker Image') {
-            steps {
-                dir("src/cartservice/src") {
-                    echo "🔧 Processing service: cartservice"
-
-                    sh """
-                        echo "🚧 Building Docker image for cartservice..."
-                        docker build -t cartservice:latest -f src/Dockerfile  .
-
-                        echo "🔁 Tagging Docker image for ECR..."
-                        docker tag cartservice:latest ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/cartservice:latest
-
-                        echo "📤 Pushing Docker image to ECR..."
-                        docker push ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/cartservice:latest
-                    """
-                }
-            }
-        }
-
-        stage('Check Docker Image Disk Usage') {
-            steps {
-                echo "📦 Checking top 10 largest Docker images by size..."
-                sh '''
-                    docker images --format "{{.Repository}}:{{.Tag}} {{.Size}}" | sort -k2 -h | tail -n 10
-                '''
-            }
-        }
-
-        stage('Cleanup Docker Resources') {
-            steps {
-                echo "🧹 Cleaning up unused Docker images, containers, volumes..."
-                sh '''
-                    docker system prune -af --volumes
-                '''
             }
         }
     }
