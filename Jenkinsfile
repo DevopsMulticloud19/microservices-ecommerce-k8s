@@ -68,7 +68,7 @@ pipeline {
 
         stage('Build & Push cartservice Docker Image') {
             steps {
-                dir('src/cartservice') {
+                dir('cartservice/src') {
                     echo "🔧 Processing service: cartservice"
 
                     sh """
