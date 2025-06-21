@@ -3,16 +3,15 @@ pipeline {
 
     environment {
         AWS_REGION = 'us-east-1'
-        AWS_ACCOUNT_ID = '222634377087' // Replace with your real AWS Account ID
+        AWS_ACCOUNT_ID = '222634377087'
     }
 
     stages {
-        stage('Build & Push Docker Images to ECR') {
+        stage('Build & Push Docker Images (excluding cartservice)') {
             steps {
                 script {
                     def services = [
                         'adservice',
-                        'cartservice',
                         'checkoutservice',
                         'currencyservice',
                         'emailservice',
@@ -24,29 +23,46 @@ pipeline {
                     ]
 
                     for (svc in services) {
-                        def buildPath = (svc == 'cartservice') ? 'src/cartservice/src' : "src/${svc}"
-
-                        dir(buildPath) {
-                            echo "🔧 Building and pushing image for ${svc}"
+                        dir("src/${svc}") {
+                            echo "🔧 Processing service: ${svc}"
 
                             sh """
-                                set -e
-                                set -x
+                                echo "🔐 Logging into AWS ECR..."
+                                aws ecr get-login-password --region ${env.AWS_REGION} | docker login --username AWS --password-stdin ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com
 
-                                echo "🔐 Logging into AWS ECR"
-                                aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-
-                                echo "🛠️ Building Docker image for ${svc}"
+                                echo "🚧 Building Docker image for ${svc}..."
                                 docker build -t ${svc}:latest .
 
-                                echo "🏷️ Tagging Docker image"
-                                docker tag ${svc}:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${svc}:latest
+                                echo "🔁 Tagging Docker image for ECR..."
+                                docker tag ${svc}:latest ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${svc}:latest
 
-                                echo "📤 Pushing Docker image to ECR"
-                                docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${svc}:latest
+                                echo "📤 Pushing Docker image to ECR..."
+                                docker push ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${svc}:latest
                             """
                         }
                     }
+                }
+            }
+        }
+
+        stage('Build & Push cartservice Docker Image') {
+            steps {
+                dir('src/cartservice') {
+                    echo "🔧 Processing service: cartservice"
+
+                    sh """
+                        echo "🔐 Logging into AWS ECR..."
+                        aws ecr get-login-password --region ${env.AWS_REGION} | docker login --username AWS --password-stdin ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com
+
+                        echo "🚧 Building Docker image for cartservice..."
+                        docker build -t cartservice:latest .
+
+                        echo "🔁 Tagging Docker image for ECR..."
+                        docker tag cartservice:latest ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/cartservice:latest
+
+                        echo "📤 Pushing Docker image to ECR..."
+                        docker push ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/cartservice:latest
+                    """
                 }
             }
         }
