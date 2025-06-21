@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_REGION = 'us-east-1'
-        AWS_ACCOUNT_ID = '222634377087' // Replace with your actual AWS Account ID
+        AWS_ACCOUNT_ID = '222634377087'
     }
 
     stages {
@@ -24,11 +24,12 @@ pipeline {
                     ]
 
                     for (svc in services) {
-                        dir("src/${svc}") {
+                        def dockerfilePath = (svc == 'cartservice') ? 'src/cartservice/src' : "src/${svc}"
+
+                        dir(dockerfilePath) {
                             echo "🔧 Processing service: ${svc}"
 
                             sh """
-                                echo "Logging into AWS ECR..."
                                 aws ecr get-login-password --region ${env.AWS_REGION} | docker login --username AWS --password-stdin ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com
 
                                 echo "🚧 Building Docker image for ${svc}..."
