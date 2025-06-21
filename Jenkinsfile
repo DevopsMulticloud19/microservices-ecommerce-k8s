@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         AWS_REGION = 'us-east-1'
-        AWS_ACCOUNT_ID = '222634377087' // Replace with your actual AWS account ID
+        AWS_ACCOUNT_ID = '222634377087' // Replace with your real AWS Account ID
     }
 
     stages {
@@ -30,6 +30,9 @@ pipeline {
                             echo "🔧 Building and pushing image for ${svc}"
 
                             sh """
+                                set -e
+                                set -x
+
                                 echo "🔐 Logging into AWS ECR"
                                 aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
 
@@ -39,7 +42,7 @@ pipeline {
                                 echo "🏷️ Tagging Docker image"
                                 docker tag ${svc}:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${svc}:latest
 
-                                echo "📤 Pushing image to ECR"
+                                echo "📤 Pushing Docker image to ECR"
                                 docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${svc}:latest
                             """
                         }
