@@ -21,7 +21,7 @@ pipeline {
                         'productcatalogservice',
                         'recommendationservice',
                         'shippingservice'
-                          'loadgenerator'
+                        'loadgenerator'
                     ]
 
                     for (service in services) {
