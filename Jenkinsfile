@@ -20,7 +20,7 @@ pipeline {
                         'paymentservice',
                         'productcatalogservice',
                         'recommendationservice',
-                        'shippingservice'
+                        'shippingservice',
                         'loadgenerator'
                     ]
 
