@@ -1,9 +1,11 @@
 pipeline {
     agent any
+
     environment {
         AWS_REGION = 'us-east-1'
-        AWS_ACCOUNT_ID = '222634377087' // 🔁 Replace with your real AWS account ID
+        AWS_ACCOUNT_ID = '222634377087' // Replace with your actual AWS Account ID
     }
+
     stages {
         stage('Build & Push Docker Images to ECR') {
             steps {
@@ -23,20 +25,20 @@ pipeline {
 
                     for (svc in services) {
                         dir("src/${svc}") {
+                            echo "🔧 Processing service: ${svc}"
+
                             sh """
-                            echo "Building and Pushing ${svc}"
-                            
-<<<<<<< HEAD
-                            aws ecr get-login-password --region "$AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
-                            
-                        
-=======
-                            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
-                            
-                            docker build -t ${svc}:latest .
->>>>>>> refs/remotes/origin/main
-                            docker tag ${svc}:latest "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${svc}:latest"
-                            docker push "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/${svc}:latest"
+                                echo "Logging into AWS ECR..."
+                                aws ecr get-login-password --region ${env.AWS_REGION} | docker login --username AWS --password-stdin ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com
+
+                                echo "🚧 Building Docker image for ${svc}..."
+                                docker build -t ${svc}:latest .
+
+                                echo "🔁 Tagging Docker image for ECR..."
+                                docker tag ${svc}:latest ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${svc}:latest
+
+                                echo "📤 Pushing Docker image to ECR..."
+                                docker push ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/${svc}:latest
                             """
                         }
                     }
@@ -45,5 +47,3 @@ pipeline {
         }
     }
 }
-
-
