@@ -3,10 +3,22 @@ pipeline {
 
     environment {
         AWS_REGION = 'us-east-1'
-        AWS_ACCOUNT_ID = '222634377087'
+        AWS_ACCOUNT_ID = '222634377087' // Replace with your actual AWS Account ID
     }
 
     stages {
+
+        stage('Login to AWS ECR') {
+            steps {
+                echo "🔐 Logging into AWS ECR once for all services..."
+                script {
+                    sh """
+                        aws ecr get-login-password --region ${env.AWS_REGION} | docker login --username AWS --password-stdin ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com
+                    """
+                }
+            }
+        }
+
         stage('Build & Push Docker Images (excluding cartservice)') {
             steps {
                 script {
@@ -27,9 +39,6 @@ pipeline {
                             echo "🔧 Processing service: ${svc}"
 
                             sh """
-                                echo "🔐 Logging into AWS ECR..."
-                                aws ecr get-login-password --region ${env.AWS_REGION} | docker login --username AWS --password-stdin ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com
-
                                 echo "🚧 Building Docker image for ${svc}..."
                                 docker build -t ${svc}:latest .
 
@@ -51,9 +60,6 @@ pipeline {
                     echo "🔧 Processing service: cartservice"
 
                     sh """
-                        echo "🔐 Logging into AWS ECR..."
-                        aws ecr get-login-password --region ${env.AWS_REGION} | docker login --username AWS --password-stdin ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com
-
                         echo "🚧 Building Docker image for cartservice..."
                         docker build -t cartservice:latest .
 
