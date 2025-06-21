@@ -84,5 +84,23 @@ pipeline {
                 }
             }
         }
+
+        stage('Check Docker Image Disk Usage') {
+            steps {
+                echo "📦 Checking top 10 largest Docker images by size..."
+                sh '''
+                    docker images --format "{{.Repository}}:{{.Tag}} {{.Size}}" | sort -k2 -h | tail -n 10
+                '''
+            }
+        }
+
+        stage('Cleanup Docker Resources') {
+            steps {
+                echo "🧹 Cleaning up unused Docker images, containers, volumes..."
+                sh '''
+                    docker system prune -af --volumes
+                '''
+            }
+        }
     }
 }
