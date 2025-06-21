@@ -68,12 +68,12 @@ pipeline {
 
         stage('Build & Push cartservice Docker Image') {
             steps {
-                dir('cartservice/src') {
+                dir("src/cartservice/src") {
                     echo "🔧 Processing service: cartservice"
 
                     sh """
                         echo "🚧 Building Docker image for cartservice..."
-                        docker build -t cartservice:latest .
+                        docker build -t cartservice:latest -f src/Dockerfile  .
 
                         echo "🔁 Tagging Docker image for ECR..."
                         docker tag cartservice:latest ${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_REGION}.amazonaws.com/cartservice:latest
