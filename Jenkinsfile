@@ -1,53 +1,17 @@
 pipeline {
     agent any
-
-    environment {
-        AWS_REGION = 'us-east-1'
-        AWS_ACCOUNT_ID = '222634377087'
-    }
-
     stages {
-        stage('Build & Push Docker Images to ECR') {
+        stage('Deploy To Kubernetes') {
             steps {
-                script {
-                    def services = [
-                        'adservice',
-                        'cartservice',
-                        'checkoutservice',
-                        'currencyservice',
-                        'emailservice',
-                        'frontend',
-                        'paymentservice',
-                        'productcatalogservice',
-                        'recommendationservice',
-                        'shippingservice',
-                        'loadgenerator'
-                    ]
-
-                    for (service in services) {
-                        echo "Checking ECR for image: ${service}:latest"
-                        def imageExists = sh(
-                            script: """
-                            aws ecr describe-images \
-                              --repository-name ${service} \
-                              --image-ids imageTag=latest \
-                              --region ${env.AWS_REGION} >/dev/null 2>&1
-                            """,
-                            returnStatus: true
-                        ) == 0
-
-                        if (imageExists) {
-                            echo "Image ${service}:latest already exists in ECR. Skipping build & push."
-                        } else {
-                            echo "Image ${service}:latest not found. Building & pushing..."
-
-                            sh """
-                            docker build -t ${service}:latest src/${service}
-                            docker tag ${service}:latest ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${service}:latest
-                            docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${service}:latest
-                            """
-                        }
-                    }
+                withKubeCredentials(kubectlCredentials: [[caCertificate: '', clusterName: 'EKS-1', contextName: '', credentialsId: 'k8s-token', namespace: 'webapps', serverUrl: 'https://BB496198C7590F97CDEC796E4D2D4A32.gr7.us-east-1.eks.amazonaws.com']]) {
+                    sh "kubectl apply -f deployment-service.yml"
+                }
+            }
+        }
+        stage('Verify Deployment') {
+            steps {
+                withKubeCredentials(kubectlCredentials: [[caCertificate: '', clusterName: 'EKS-1', contextName: '', credentialsId: 'k8s-token', namespace: 'webapps', serverUrl: 'https://BB496198C7590F97CDEC796E4D2D4A32.gr7.us-east-1.eks.amazonaws.com']]) {
+                    sh "kubectl get svc -n webapps"
                 }
             }
         }
